@@ -1,14 +1,18 @@
+# coding=utf-8
+
 __author__ = 'Bulat'
 
 # libraries
 from collections import defaultdict
-
-import xlrd
 from os import listdir
-import cv2
 import time
 from functools import wraps
-import numpy as np
+import cPickle as pickle
+from PIL import Image
+
+import xlrd
+
+#THEANO Library
 
 
 # const parameters given by sun database
@@ -18,6 +22,16 @@ PATHS_ROW = 0
 INDOOR_ROW = 1
 OUTDOOR_NAT_ROW = 2
 OUTDOOR_HUM_ROW = 3
+BASE_PATH = "C:\\SunAT\\features.p"
+#BASEFILE = "C:\SunAt\\"
+
+def testFunc():
+    pass
+    #k1 = cv2.MSER_create()
+    #k2 = cv2.ORB_create()
+  #  k3 = cv2.ORB()
+  #  k3.compute()
+
 
 
 def retry(f):
@@ -37,58 +51,128 @@ def retry(f):
     return wrapped_f
 
 
-def siftfeature(paths):
+kpAll = []
+desAll = []
 
-    #Taken from github
-    detector_format = ["","Grid","Pyramid"]
+#Opencv feature tracking  (depricated)
+def features(paths):
+    # Taken from github
+   # detector_format = ["", "Grid", "Pyramid"]
     # "Dense" and "SimpleBlob" omitted because they caused the program to crash
-    detector_types = ["FAST","STAR","SIFT","SURF","ORB","MSER","GFTT","HARRIS"]
+    # "Sift" caused the program to crash
+
+#    "FAST" – FastFeatureDetector
+#    "STAR" – StarFeatureDetector
+#    "SIFT" – SIFT (nonfree module)
+#    "SURF" – SURF (nonfree module)
+#    "ORB" – ORB
+#    "BRISK" – BRISK
+#    "MSER" – MSER
+#    "GFTT" – GoodFeaturesToTrackDetector
+#    "HARRIS" – GoodFeaturesToTrackDetector with Harris detector enabled
+#    "Dense" – DenseFeatureDetector
+#    "SimpleBlob" – SimpleBlobDetector
+
+#    detector_types = ["FAST", "Dense", "SIFT", "SURF", "ORB", "MSER", "GFTT", "HARRIS"]
 
     #----------
     # This code was taken from opencv.org , for testing
     t1 = time.time()
-    kpAll = []
-    desAll = []
+    global kpAll
+    global dsAll
+
     cur = 0
     prevtime = t1
     for path in paths:
         try:
             img = cv2.imread(path)
-            #forb = cv2.FeatureDetector_create(detector_types[1])
-            #descript = cv2.DescriptorExtractor_create(detector_types[1])
-            forb = cv2.Feature2D_create(detector_types[1])
+            k = cv2.ocl.useOpenCL()
+            k2 = cv2.ORB_create()
+
+            forb = cv2.FeatureDetector_create(detector_types[1])
+            print forb
+            descript = cv2.DescriptorExtractor_create(detector_types[1])
+            #forb = cv2.Feature2D_create(detector_types[3])
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             sift = forb
-            #sift = cv2.StarDetector()
+
+            #sift = cv2.
             #sift = cv2.SIFT()
-           # sift = cv2.FastFeatureDetector()
+            # sift = cv2.FastFeatureDetector()
             #cv2
 
-            forb = cv2.SIFT()
+            #forb = cv2.ORB()
             kp = forb.detect(gray, None)
-            kp,des = forb.compute(gray, kp)
-            #print kp
-           # print "DEs " + str(des)
-           # des = sift.compute()
-          #  img = cv2.drawKeypoints(gray, kp, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-           # kp, des = sift.detectAndCompute(gray, None)
-            new_path = path[:-4] + "_sift.jpg"
+            kp, des = descript.compute(gray, kp)
+
+
+            #  print "Kp len " + str(len(kp))
+            #  print "Des len {0}", len(des)
+            # print "DEs " + str(des)
+            # des = sift.compute()
+            # img = cv2.drawKeypoints(gray, kp) #, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            # kp, des = sift.detectAndCompute(gray, None)
+            new_path = path + ".jpg"
             t2 = time.time()
-            print "Writed " + new_path + " Time " + str(t2 - prevtime)
+            print "Writed " + path + " Time " + str(t2 - prevtime)
             prevtime = t2
-            # cv2.imwrite(new_path, img)
+            #cv2.imwrite(new_path, img)
             kpAll.append(kp)
             #desAll.append(des)
-          #  print kp
-            cur +=1
+            #  print kp
+            cur += 1
             del img
-           # del(gray, sift, kp ) #, des)
+            # del(gray, sift, kp ) #, des)
 
         except MemoryError:
-           print "oopes"
+            print "oopes ! Memory Error"
 
     t3 = time.time()
-    print "Done " + "Taken time " + str(t3 - t1) + " for " + str(len(paths)) + " pict"
+    print "Done. " + "Taken time " + str(t3 - t1) + " for " + str(len(paths)) + " pict"
+    print "Current length " + str(len(kpAll))
+
+
+def saveToBase():
+
+    pickle.dump({'keys': kpAll, "desc" : desAll}, open(BASE_PATH, 'wb'))
+
+def readImages(paths):
+    """
+     Read All images in paths
+    :param paths: Paths to read all Images
+    :return:
+    """
+    t1 = time.time()
+    global kpAll
+    global dsAll
+    cur = 0
+    prevtime = t1
+    alllen = len(paths)
+    for path in paths:
+        try:
+            img1 = Image.open(path)
+
+            size = (128, 128)
+            img = img1.resize(size, Image.ANTIALIAS)
+            img = img.convert('L')
+
+            new_path = path + ".jpg"
+            cur += 1
+            if cur % (alllen/10) ==0:  # The ten times division
+                print "Progress " + str(cur) + " / " + str(alllen)
+                t2 = time.time()
+                print "Time ellapsed " + str(t2 - t1)
+
+            del img
+
+        except MemoryError:
+            print "oopes ! Memory Error"
+
+    t3 = time.time()
+    print "Done. " + "Taken time " + str(t3 - t1) + " for " + str(len(paths)) + " pict"
+    print "Current length " + str(len(kpAll))
+
+
 
 
 # noinspection PyPep8Naming
@@ -96,7 +180,8 @@ def readBasePaths():
     """
         Reading xlsx file SUN database
         Get all paths with pictures
-    :rtype : list with 2 element - ( dictonaries : direct paths - are keys and inverse
+    :rtype : list with 2 element - ( 1. dictonary : direct paths - are keys, value - category
+                                     2. dictonary : keys: category, value - paths)
     """
     dataset_dict = {}
     print "opening " + PATH
@@ -135,7 +220,7 @@ def readBasePaths():
 # noinspection PyPep8Naming
 def getAllFiles(path):
     """
-
+     Gets avaliable names for using from dictonary
     :param path: The dir with of all files
     :return:
     """
