@@ -9,9 +9,9 @@ import time
 from functools import wraps
 import cPickle as pickle
 from PIL import Image
-
+import gist
 import xlrd
-
+import adaboost
 #THEANO Library
 
 
@@ -51,8 +51,10 @@ def retry(f):
     return wrapped_f
 
 
-kpAll = []
-desAll = []
+X = []
+Y = []
+X_test = []
+Y_test = []
 
 #Opencv feature tracking  (depricated)
 def features(paths):
@@ -133,44 +135,67 @@ def features(paths):
 
 
 def saveToBase():
+    global X
+    global Y
+    global X_test
+    global Y_test
 
-    pickle.dump({'keys': kpAll, "desc" : desAll}, open(BASE_PATH, 'wb'))
+    pickle.dump({'X': X, "Y" : Y, 'X_test': X_test, 'Y_test': Y_test}, open(BASE_PATH, 'wb'))
 
-def readImages(paths):
+def returnBase():
+    global X
+    global Y
+    global X_test
+    global Y_test
+    print "Opening base file"
+    t1 = time.time()
+    dict = pickle.load(open(BASE_PATH, "rb"))
+    t2 = time.time()
+    print "Success! ", t2 - t1
+    X = dict['X']
+    Y = dict['Y']
+    X_test = dict['X_test']
+    Y_test = dict['Y_test']
+
+    return [X,Y, X_test, Y_test]
+
+def readImages(paths, str):
     """
      Read All images in paths
     :param paths: Paths to read all Images
     :return:
     """
     t1 = time.time()
-    global kpAll
-    global dsAll
+    global X
+    global Y
+    global X_test
+    global Y_test
     cur = 0
     prevtime = t1
-    alllen = len(paths)
-    for path in paths:
-        try:
-            img1 = Image.open(path)
+    gist1, gist2 = gist.extract(paths)
+    for k in gist1:
+        X.append(k)
+    for k in range(0, len(gist1)):
+        Y.append([str])
 
-            size = (128, 128)
-            img = img1.resize(size, Image.ANTIALIAS)
-            img = img.convert('L')
+    for k in gist2:
+        X_test.append(k)
 
-            new_path = path + ".jpg"
-            cur += 1
-            if cur % (alllen/10) ==0:  # The ten times division
-                print "Progress " + str(cur) + " / " + str(alllen)
-                t2 = time.time()
-                print "Time ellapsed " + str(t2 - t1)
+    for k in range(0, len(gist2)):
+        Y_test.append([str])
 
-            del img
 
-        except MemoryError:
-            print "oopes ! Memory Error"
 
-    t3 = time.time()
-    print "Done. " + "Taken time " + str(t3 - t1) + " for " + str(len(paths)) + " pict"
-    print "Current length " + str(len(kpAll))
+
+    print 'Done'
+    print "X len " , len(X)
+    print "Y len " , len(Y)
+    print "X te len " , len(X_test)
+    print "Y te len " , len(Y_test)
+
+
+
+
 
 
 
@@ -226,9 +251,10 @@ def getAllFiles(path):
     """
     print path
     path = PIC_PATH[:-1] + path
-    files_path = listdir(path)
-    answer = [(path + '\\' + x).replace('/', '\\') for x in files_path]
-    del files_path
+
+    answer = (path + "\\").replace('/', '\\')
+
+    print answer
     print "Ok"
     return answer
 
